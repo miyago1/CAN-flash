@@ -20,8 +20,12 @@ Optional
 ## Python packages
 
 Intelhex: https://pypi.org/project/IntelHex/
+
 Progressbar2: https://pypi.org/project/progressbar2/
+
 Python-can: https://pypi.org/project/python-can/
+
 Python-statemachine: https://pypi.org/project/python-statemachine/
+
 
 Use requirements.txt to install: pip install -r requirements.txt

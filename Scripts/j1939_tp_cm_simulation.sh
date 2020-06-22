@@ -1,0 +1,36 @@
+#!/bin/bash
+
+CAN_INTERFACE=can0
+
+# Python: skickar reset request     18EA6633#13FF00
+
+# MCU: ACK i applikationsminnet.    
+# cansend vcan0 18E8FF66#0001FFFF3313FF00
+# MCU: ACK i bootloadern.           
+cansend ${CAN_INTERFACE} 18E8FF66#0002FFFF3313FF00
+
+# Python: RTS första pagen: 1CEC6633#102F0007FF15FF00
+
+# MCU: CTS för paket 1               
+cansend ${CAN_INTERFACE} 1CEC3366#110101FFFF15FF00
+
+# MCU: CTS för paket 2
+cansend ${CAN_INTERFACE} 1CEC3366#110102FFFF15FF00
+
+# MCU: CTS för paket 3
+cansend ${CAN_INTERFACE} 1CEC3366#110103FFFF15FF00
+
+# MCU: CTS för paket 4
+cansend ${CAN_INTERFACE} 1CEC3366#110104FFFF15FF00
+
+# MCU: CTS för paket 5
+cansend ${CAN_INTERFACE} 1CEC3366#110105FFFF15FF00
+
+# MCU: CTS för paket 6
+cansend ${CAN_INTERFACE} 1CEC3366#110106FFFF15FF00
+
+# MCU: CTS för paket 7
+cansend ${CAN_INTERFACE} 1CEC3366#110107FFFF15FF00
+
+# MCU: EndOfMsgACK page 1
+cansend ${CAN_INTERFACE} 1CEC3366#132F0007FF15FF00

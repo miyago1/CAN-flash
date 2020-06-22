@@ -17,7 +17,7 @@ echo "Done compiling libraries"
 echo "Compiling OPTIBOOT"
 # optiboot
 make clean
-make m_atmega328 boot_timeout=2
+make can_atmega328 boot_timeout=2
 echo "Completed compilation, time to flash!"
 
 /usr/bin/avrdude -v -p${MCU} -c${PROGRAMMER} -P${USB_PORT} -Uflash:w:optiboot_atmega328.hex:i -Ulock:w:0xFF:m

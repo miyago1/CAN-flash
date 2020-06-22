@@ -1,10 +1,10 @@
 # CAN-Flash
-A customer verison of [Optiboot](https://github.com/Optiboot/optiboot) with support for flashing firmware over CAN with SAE J1939.<br/>
-⁻ CRC32 for verifying firmware integrity.<br/>
-- Only a successfull firmware update will launch the sketch.
+A custom verison of [Optiboot](https://github.com/Optiboot/optiboot) with support for flashing firmware over CAN with SAE J1939.<br/>
+* Still supports flashing over USB 
+* CRC32 for verifying firmware integrity.<br/>
+* Only a successfull firmware update will launch the sketch.
 # Bootloader
-Possibilities to initialize flash from Power-on reset and from running sketch, see [description](USAGE.MD) for usage.
-
+Possibilities to initialize CAN flash from Power-on reset and from a running sketch, see [description](USAGE.MD)
 
 [comment]: <> (Modified optiboot bootloader to support flashing via CAN-bus)
 

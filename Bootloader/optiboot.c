@@ -24,22 +24,22 @@ optiboot_version = 256* ( OPTIBOOT_MAJVER + OPTIBOOT_CUSTOMVER ) + OPTIBOOT_MINV
 #include <avr/pgmspace.h>
 #include <avr/eeprom.h>
 
-/********************CAN related declarations***********************/
+/**************************************************************************
+ * ******************MAGNUS OCH HENRIK ÄR BÄST*****************************
+ * ***********************************************************************/
 #include "can_libs/mh_can.h"
-#include "can_libs/mh_spi.h"
 #include "can_libs/mh_j1939.h"
 #include "can_libs/flash_utils.h"
 
+#include <util/delay.h> // Delay Functions
 #include <avr/wdt.h>
 #include <avr/interrupt.h> // Used in functions: boot_program_page
 
 void can_main();
 
-static uint8_t data_buffer[128];
-
-
-/*******************************************************************/
-
+/**************************************************************************
+ * ******************MAGNUS OCH HENRIK HAR SLUTAT VARA BÄST****************
+ * ***********************************************************************/
 
 /*
  * optiboot uses several "address" variables that are sometimes byte pointers,
@@ -216,6 +216,8 @@ void uartDelay() __attribute__ ( ( naked ) );
 /* This allows us to drop the zero init code, saving us memory */
 static addr16_t buff = { ( uint8_t * ) ( RAMSTART ) };
 
+static uint8_t data_buffer[128];
+
 
 /* Virtual boot partition support */
 #ifdef VIRTUAL_BOOT_PARTITION
@@ -354,9 +356,11 @@ int main ( void )
 #endif
 
     watchdogReset();
+    led_d5_init();
+    led_d4_init();
 
     const uint8_t flash_status = eeprom_read_byte((uint8_t*)FLASH_STATUS_ADDR);
-    if( (flash_status == 1) | (ch & ( _BV ( PORF ) ) )) {   /* Start bootloader if flash with CAN is active or power-on-reset */
+    if( (flash_status == 1) | (ch & ( _BV ( PORF ) ) )) {   // Vi vill läsa CAN om FLASH_ACTIVE eller Power on
         ch = 0;
     }
 
@@ -469,7 +473,7 @@ int main ( void )
 #endif // soft_uart
 
     // Set up watchdog to trigger after 2s
-    watchdogConfig(WATCHDOG_2S); 
+    watchdogConfig(WATCHDOG_2S); //WATCHDOG_2S
 
 #if (LED_START_FLASHES > 0) || defined(LED_DATA_FLASH) || defined(LED_START_ON)
     /* Set LED pin as output */
@@ -492,10 +496,13 @@ int main ( void )
 #endif
 
     watchdogReset();
-
+    // Check if it's a CAN flash
     if( (flash_status == 1) | (MCUSR & ( _BV ( PORF ) ))) {
+
         if(MCUSR & ( _BV ( PORF ))) {
-            MCUSR &= ~(_BV ( PORF ));   /* Clear MCUSR to start app after watchdog timeout (in case of power on reset) */
+            led_d4_high();
+
+            MCUSR &= ~(_BV ( PORF ));
         }
         can_main();
     }
@@ -1210,52 +1217,114 @@ OPTFLASHSECT const char f_version[] = "Version=" xstr ( OPTIBOOT_MAJVER ) "." xs
 
 #endif
 
+/***************************************************************************
+ *******************MAGNUS OCH HENRIK ÄR BÄST*******************************
+ ***************************************************************************/
 
+/**
+ * @brief ...
+ * @todo titta på hur vilka watchdog tider som är lämpliga.
+ * lägga till val av wdt-tider antiongen i eeprom eller pre-processor direktiv
+ *
+ */
 void can_main()
 {
+    led_d5_high();
     watchdogReset();
 
     const uint8_t can_baudrate = eeprom_read_byte((const uint8_t*)CAN_BAUDRATE_ADDR);
-    const uint8_t node_address = eeprom_read_byte((const uint8_t*)J1939_SA_ADDR);
+    const uint8_t node_address = eeprom_read_byte((const uint8_t*)CAN_SA_ADDR);
 
-    mcp2515_initialize_module(node_address, can_baudrate);
+    // INIT MCP2515
+    spi_init();
 
-    tp_cm_session_t tp_session;
+    // Reset function
+    SPCR = SPI_SPCR;
+    SPSR = SPI_SPSR;
+    PORTD &= ~(1 << PIN7); // SS low
+
+    spi_master_transmit ( INSTRUCTION_RESET );
+
+    PORTD |= 1 << PIN7;  // SS high
+
+    _delay_ms(5);
+
+    mcp2515_write_register( MCP_RXB0CTRL, 0x60 );   // Turn off all filter and masks for RXB0
+    mcp2515_write_register( MCP_RXB1CTRL, 0 );      // Use filter masks for RXB1
+
+    mcp2515_write_register( MCP_CANINTE, CANINTF_RX0IF | CANINTF_RX1IF | CANINTF_ERRIF | CANINTF_MERRF );
+
+    mcp2515_bitmodify_register( MCP_RXB1CTRL,
+                                RXBnCTRL_RXM_MASK | RXB1CTRL_FILHIT_MASK,
+                                RXBnCTRL_RXM_STDEXT | RXB1CTRL_FILHIT );
+
+    uint8_t id_buffer[4] = {0};
+
+    // Filter and mask for RXB1
+    id_buffer[MCP_SIDH] = ( uint8_t ) ( MASK_SFF_MCU >> 3 );
+    id_buffer[MCP_SIDL] = ( uint8_t ) ( ( MASK_SFF_MCU & 0x07 ) << 5 );
+    id_buffer[MCP_EID8] = 0;
+    id_buffer[MCP_EID0] = 0;
+    mcp2515_write_registers ( MCP_RXM1SIDH, id_buffer, 4 );
+
+    id_buffer[MCP_SIDH] = ( uint8_t ) ( FILTER_SFF_MCU >> 3 );
+    id_buffer[MCP_SIDL] = ( uint8_t ) ( ( FILTER_SFF_MCU & 0x07 ) << 5 );
+    mcp2515_write_registers ( MCP_RXF2SIDH, id_buffer, 4 );
+
+    mcp2515_set_bitrate_8mhz(can_baudrate);    // 2 = 20, 3 = 125,4 = 200, 5=250, 6 = 500, 7 = 1k
+    mcp2515_bitmodify_register ( MCP_CANCTRL, CANCTRL_REQOP, CANCTRL_REQOP_NORMAL ); // OPERATION NORMAL
+
+    // SLUT PÅ INIT
 
     uint16_t firmware_size;
+    uint8_t page_count;
 
-    union j1939_pdu message;
-    union j1939_pdu rts_receipt;
+    j1939_pdu_t message;
+    tp_cm_session_t tp_session;
 
     watchdogReset();
 
     for ( ;; ) {
-        if ( mcp2515_read_message ( &message.can ) == ERROR_OK) { // No handeling for RTR or ERROR frames
+        if ( mcp2515_read_message ( &message ) == ERROR_OK) { // inga checkar på RTR och ERROR
 
-            if ( message.j1939.pdu_format == PDU_FORMAT_FLASH ) {   //Proprietary A
+            if ( message.pdu_format == PDU_FORMAT_FLASH ) {
                 watchdogReset();
 
-                switch(message.j1939.data[0]) {
+                switch(message.data[0]) {
                 case PA_FLASH_REQUEST: {
+                    led_d4_low();
+
                     create_ack(&message, CB_ACK, node_address);
-                    mcp2515_send_message(&message.can);
+                    mcp2515_send_message(&message);
                     break;
                 }
                 case PA_FLASH_INFO: {
 
+                    mcp2515_bitmodify_register ( MCP_CANCTRL, CANCTRL_REQOP, CANCTRL_REQOP_CONFIG );
+
                     mcp2515_bitmodify_register( MCP_RXB0CTRL,
                                                 RXBnCTRL_RXM_MASK | RXB0CTRL_BUKT | RXB0CTRL_FILHIT_MASK,
-                                                RXBnCTRL_RXM_STDEXT | RXB0CTRL_BUKT | RXB0CTRL_FILHIT );
-
+                                                RXBnCTRL_RXM_STDEXT | RXB0CTRL_BUKT | RXB0CTRL_FILHIT );    // Turn on filter and masks for RXB0
                     // Filter and mask for RXB0
-                    mcp2515_set_acceptance_mask( MASK0, true, MASK_EFF_MCU );              // J1939 filter
-                    mcp2515_set_acceptance_filter( RXF0, true, (FILTER_EFF_MCU | (node_address << 8) | message.j1939.source_address));   // J1939 filter
+                    id_buffer[MCP_EID0] = 0xFF;
+                    id_buffer[MCP_EID8] = 0xFF;
+                    id_buffer[MCP_SIDL] = ((MASK_EFF_SIDL & 0x1C) << 3) | 0x08 | (MASK_EFF_SIDL & 0x03);
+                    id_buffer[MCP_SIDH] = MASK_EFF_SIDH << 3 | (MASK_EFF_SIDL & 0xE0) >> 5;
 
-                    mcp2515_set_operation_mode( CANCTRL_REQOP_NORMAL );
+                    mcp2515_write_registers ( MCP_RXM0SIDH, id_buffer, 4 );
 
-                    firmware_size = (message.can.data[2] << 8) | message.can.data[1];
+                    id_buffer[MCP_EID0] = message.source_address;
+                    id_buffer[MCP_EID8] = node_address;
+                    id_buffer[MCP_SIDL] = ((FILTER_EFF_SIDL & 0x1C) << 3) | 0x08 | (FILTER_EFF_SIDL & 0x03);
+                    id_buffer[MCP_SIDH] = FILTER_EFF_SIDH << 3 | (FILTER_EFF_SIDL & 0xE0) >> 5;
+                    mcp2515_write_registers ( MCP_RXF0SIDH, id_buffer, 4 );
+
+                    mcp2515_bitmodify_register ( MCP_CANCTRL, CANCTRL_REQOP, CANCTRL_REQOP_NORMAL );
+
+                    firmware_size = (message.data[2] << 8) | message.data[1];
+                    page_count = message.data[3];
                     create_ack(&message, CB_ACK, node_address);
-                    mcp2515_send_message(&message.can);
+                    mcp2515_send_message(&message);
                     break;
                 }
                 case PA_FLASH_VERIFY: {
@@ -1275,15 +1344,15 @@ void can_main()
                         }
                     }
 
-                    if( message.j1939.data[4] == (mcu_crc & 0xFF) &&
-                            message.j1939.data[5] == ((mcu_crc & 0xFF00) >> 8) &&
-                            message.j1939.data[6] == ((mcu_crc & 0xFF0000) >> 16) &&
-                            message.j1939.data[7] == ((mcu_crc & 0xFF000000) >> 24) ) {
+                    if( message.data[4] == (mcu_crc & 0xFF) &&
+                            message.data[5] == ((mcu_crc & 0xFF00) >> 8) &&
+                            message.data[6] == ((mcu_crc & 0xFF0000) >> 16) &&
+                            message.data[7] == ((mcu_crc & 0xFF000000) >> 24) ) {
                         create_ack(&message, CB_ACK, node_address);
                     } else {
                         create_ack(&message, CB_NACK, node_address);
                     }
-                    mcp2515_send_message(&message.can);
+                    mcp2515_send_message(&message);
                     break;
                 }
                 case PA_FLASH_DONE: {
@@ -1298,44 +1367,55 @@ void can_main()
                 }
 
             }
-            else if ( message.j1939.pdu_format == PDU_FORMAT_TP_CM ) {
+            else if ( message.pdu_format == PDU_FORMAT_TP_CM ) {
                 watchdogReset();
-                if ( message.j1939.data[0] == TP_CM_RTS ) {
-
-                    rts_receipt = message;     /* New connection, save for end of message ack */
-
+                if ( message.data[0] == TP_CM_RTS ) {
+                    // New connection
                     tp_session.bytes_receieved = 0;
-                    tp_session.packet_count = message.j1939.data[3];
-                    tp_session.message_size = message.j1939.data[2] << 8 | message.j1939.data[1];
+                    tp_session.packet_count = message.data[3];
+                    tp_session.message_size = message.data[2] << 8 | message.data[1];
                     tp_session.sequence_number = 1;
 
                     create_cts(&message, &tp_session, node_address);
-                    mcp2515_send_message ( &message.can );
+                    mcp2515_send_message ( &message );
                 }
-            } else if ( message.j1939.pdu_format == PDU_FORMAT_TP_DT ) { // 235 = TP.DT
+            } else if ( message.pdu_format == PDU_FORMAT_TP_DT ) {
                 watchdogReset();
                 uint8_t i = 1;
-                if ( message.j1939.data[0] == 1 ) {
-                    tp_session.page_address = ( message.j1939.data[2] << 8 ) | message.j1939.data[1];
+                // First packet contain the page address
+                if ( message.data[0] == 1 ) {
+                    tp_session.page_address = ( message.data[2] << 8 ) | message.data[1];
                     i = 3;
                 }
-                for ( ; i < message.j1939.dlc; i++ ) {
-                    data_buffer[tp_session.bytes_receieved++] = message.j1939.data[i];
+                for ( ; i < message.dlc; i++ ) {
+                    data_buffer[tp_session.bytes_receieved++] = message.data[i];
                     if ( tp_session.bytes_receieved == ( tp_session.message_size - 2 ) ) {
                         break;
                     }
                 }
-                if ( message.j1939.data[0] == tp_session.packet_count ) {
-                    rts_receipt.j1939.data[0] = TP_CM_EndOfMsgACK;
-                    rts_receipt.j1939.pdu_specific = rts_receipt.j1939.source_address;
-                    rts_receipt.j1939.source_address = node_address;
-                    mcp2515_send_message ( &rts_receipt.can );
+                if ( message.data[0] == tp_session.packet_count ) {
+                    message.priority = 7;
+                    message.extended_data_page = 0;
+                    message.data_page = 0;
+                    message.pdu_format = PDU_FORMAT_TP_CM;
+                    message.pdu_specific = message.source_address;
+                    message.source_address = node_address;
+                    message.data[0] = TP_CM_EndOfMsgACK;
+                    message.data[1] = firmware_size & 0xFF;
+                    message.data[2] = (firmware_size & 0xFF00) >> 8;
+                    message.data[3] = page_count;
+                    message.data[4] = 0xFF;
+                    message.data[5] = LEAST_BITS(PGN_PROP_A);
+                    message.data[6] = MID_BITS(PGN_PROP_A);
+                    message.data[7] = MOST_BITS(PGN_PROP_A);
+
+                    mcp2515_send_message ( &message );
                     watchdogReset();
                     boot_program_page ( tp_session.page_address, data_buffer, tp_session.bytes_receieved );
                 } else {
                     tp_session.sequence_number++;
                     create_cts(&message, &tp_session, node_address);
-                    mcp2515_send_message ( &message.can );
+                    mcp2515_send_message ( &message );
                 }
             }
         }

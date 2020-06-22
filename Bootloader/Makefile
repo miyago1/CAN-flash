@@ -80,7 +80,7 @@ STK500-2 = $(STK500) -d$(MCU_TARGET) -ms -q -lCF -LCF -cUSB -I200kHz -s -wt
 #
 # End of build environment code.
 
-LIBS = can_libs/mh_can.o can_libs/mh_spi.o can_libs/mh_j1939.o can_libs/flash_utils.o
+LIBS = can_libs/mh_can.o can_libs/mh_j1939.o can_libs/flash_utils.o
 OBJ        = $(PROGRAM).o
 OPTIMIZE = -Os -fno-split-wide-types -mrelax
 
@@ -208,21 +208,11 @@ OSCCAL_VALUE_CMD = -DOSCCAL_VALUE=$(OSCCAL_VALUE)
 dummy = FORCE
 endif
 
-HELPTEXT += "Option BOOT_TIMEOUT        - set timeout for bootloader\n"
-ifdef BOOT_TIMEOUT
-BOOT_TIMEOUT_CMD = -DBOOT_TIMEOUT=$(BOOT_TIMEOUT)
-dummy = FORCE
-else
-BOOT_TIMEOUT_CMD = -DBOOT_TIMEOUT=2
-endif
-
-
-
 
 COMMON_OPTIONS = $(BAUD_RATE_CMD) $(LED_START_FLASHES_CMD) $(BIGBOOT_CMD)
 COMMON_OPTIONS += $(SOFT_UART_CMD) $(LED_DATA_FLASH_CMD) $(LED_CMD) $(SS_CMD)
 COMMON_OPTIONS += $(SUPPORT_EEPROM_CMD) $(LED_START_ON_CMD) $(APPSPM_CMD)
-COMMON_OPTIONS += $(OSCCAL_VALUE_CMD) $(VERSION_CMD) $(BOOT_TIMEOUT_CMD)
+COMMON_OPTIONS += $(OSCCAL_VALUE_CMD) $(VERSION_CMD)
 
 #UART is handled separately and only passed for devices with more than one.
 HELPTEXT += "Option UART=n                - use UARTn for communications\n"
@@ -412,36 +402,39 @@ atmega328_isp: LFUSE ?= FF
 atmega328_isp: EFUSE ?= FD
 atmega328_isp: isp
 
-#**************Optiboot with CAN-support***********************************************
+#**************MAGNUS VERSION***********************************************
+#**************MAGNUS VERSION***********************************************
+#**************MAGNUS VERSION***********************************************
+#**************MAGNUS VERSION***********************************************
 
 HELPTEXT += "target atmega328*    - ATmega328, ATmega328p, ATmega328pb\n"
-can_atmega328: TARGET = atmega328
-can_atmega328: MCU_TARGET = atmega328p
-can_atmega328: CFLAGS += $(COMMON_OPTIONS)
-can_atmega328: AVR_FREQ ?= 16000000L
+m_atmega328: TARGET = atmega328
+m_atmega328: MCU_TARGET = atmega328p
+m_atmega328: CFLAGS += $(COMMON_OPTIONS)
+m_atmega328: AVR_FREQ ?= 16000000L
 
-can_atmega328: LDSECTIONS  = -Wl,--section-start=.text=0x7000 -Wl,--section-start=.version=0x7ffe
+m_atmega328: LDSECTIONS  = -Wl,--section-start=.text=0x7000 -Wl,--section-start=.version=0x7ffe
 
-can_atmega328: $(PROGRAM)_atmega328.hex
+m_atmega328: $(PROGRAM)_atmega328.hex
 ifndef PRODUCTION
-can_atmega328: $(PROGRAM)_atmega328.lst
+m_atmega328: $(PROGRAM)_atmega328.lst
 endif
 
-can_atmega328_isp: atmega328
-can_atmega328_isp: TARGET = atmega328
-can_atmega328_isp: MCU_TARGET = atmega328p
+m_atmega328_isp: atmega328
+m_atmega328_isp: TARGET = atmega328
+m_atmega328_isp: MCU_TARGET = atmega328p
 ifndef BIGBOOT
 # 512 byte boot, SPIEN
-can_atmega328_isp: HFUSE ?= DE
+m_atmega328_isp: HFUSE ?= DE
 else
 # 1k byte boot, SPIEN
-can_atmega328_isp: HFUSE ?= DC
+m_atmega328_isp: HFUSE ?= DC
 endif
 # Low power xtal (16MHz) 16KCK/14CK+65ms
-can_atmega328_isp: LFUSE ?= FF
+m_atmega328_isp: LFUSE ?= FF
 # 2.7V brownout
-can_atmega328_isp: EFUSE ?= FD
-can_atmega328_isp: isp
+m_atmega328_isp: EFUSE ?= FD
+m_atmega328_isp: isp
 
 #*******************************SLUT*******************************************
 #*******************************SLUT*******************************************

@@ -2,9 +2,13 @@
 #define MCP2515_C_H
 
 #include <avr/io.h>
-#include <stdbool.h>
-#include "mh_spi.h"
-#include "can.h"
+#include "mh_j1939.h"
+
+
+// MACROS
+#define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
+
+#define RXBSIDL_IDE 3
 
 // ENDLESS DEFINES
 #define MCP_8MHz_1000kBPS_CFG1 (0x00)
@@ -216,6 +220,7 @@
 #define RXF4 4
 #define RXF5 5
 
+
 #define TXB0 0
 #define TXB1 1
 #define TXB2 2
@@ -238,30 +243,22 @@
 #define TXB_TXIE 0x04
 #define TXB_TXP 0x03
 
-#define RXBSIDL_IDE 3
+#define SIDL_EID_FLAG    0x08
 
 static const uint8_t DLC_MASK       = 0x0F;
 
 // MCP2515 Initializition
-void mcp2515_initialize_module(const uint8_t node_address, const uint8_t baudrate);
 void mcp2515_set_bitrate_8mhz(uint8_t choice);
-void mcp2515_set_operation_mode ( uint8_t operation_mode );
 
 // MCP2515 Register manipulation
-uint8_t mcp2515_read_status ( void );
-uint8_t mcp2515_read_rx_status ( void );
 void mcp2515_write_register ( const uint8_t reg, const uint8_t value );
 void mcp2515_write_registers ( const uint8_t reg, const uint8_t values[], const uint8_t n );
 void mcp2515_bitmodify_register ( const uint8_t reg, const uint8_t mask, const uint8_t data );
 uint8_t mcp2515_read_register ( const uint8_t reg );
-void mcp2515_read_registers ( const uint8_t reg, uint8_t values[], const uint8_t n );
+void mcp2515_read_registers ( const uint8_t reg, uint8_t values[], const uint8_t n );   
 
 // CAN functions
-uint8_t mcp2515_set_acceptance_filter(const uint8_t num, const bool ext, const uint32_t acceptance_filter);
-uint8_t mcp2515_set_acceptance_mask(const uint8_t mask, const bool ext, const uint32_t acceptance_mask);
-uint8_t mcp2515_send_message(const struct can_frame *frame);
-uint8_t mcp2515_read_message(struct can_frame* frame);
-
-
+uint8_t mcp2515_send_message(j1939_pdu_t* pdu);
+uint8_t mcp2515_read_message(j1939_pdu_t* pdu);
 
 #endif

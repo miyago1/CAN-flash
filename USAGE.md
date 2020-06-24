@@ -1,7 +1,7 @@
 # Optiboot with CAN-flash-support
 
 ## Installation of new bootloader
-1. Inside Bootloader/optibootv2 run make can_atmega328
+1. Inside Bootloader/optibootv2 run **make -C can_libs/** to create object files and then **make can_atmega328** to generate HEX file. 
 2. Burn optiboot_atmega328.hex to MCU and set High-Fuse to 0xD0. Example guide https://learn.sparkfun.com/tutorials/installing-an-arduino-bootloader/all.
 3. Modify the sketch [store_node_id.ino](Flashtool/MCU-sketch/store_node_id.ino) with the Node-ID that should be assigned to the target node, upload it to node with Arduino IDE and let it run. 
 
